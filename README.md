@@ -2,37 +2,55 @@
 
 Windows-Programm für die eigene Arbeitszeit: Stundenlohn, Wochen- und
 Tagesmaximum sowie eine automatische Pausenregel eintragen, dann für jeden
-Wochentag Beginn und Ende erfassen. Fehlt an einem Tag das Ende, schlägt das
-Programm die Feierabend-Zeit vor, ab der Wochen- oder Tagesmaximum erreicht
-ist — und rechnet den Verdienst der Woche aus.
+Wochentag Beginn und Ende erfassen — oder den Tag als Urlaub markieren.
+Fehlt an einem Tag das Ende, schlägt das Programm die Feierabend-Zeit vor.
+Jede Kalenderwoche bleibt dauerhaft editierbar (auch rückwirkend), und das
+Programm rechnet Wochenverdienst und Urlaubsentgelt aus.
 
 ![Logo](icon.png)
 
 ## Wie es rechnet
 
-Die Pausenregel ist frei einstellbar (Standard: **6 Stunden**). Bis zu dieser
-Grenze zählt alles als Arbeit. Danach sind die nächsten **45 Minuten**
-automatisch Pause statt Arbeit, die Zeit danach wieder Arbeit. Beispiel bei
-Beginn 08:00 und Ende 16:30: 8,5 Stunden Anwesenheit, davon 45 Minuten Pause
-→ 7 Stunden 45 Minuten Arbeitszeit.
+**Pause:** frei einstellbar (Standard: **6 Stunden**). Bis zu dieser Grenze
+zählt alles als Arbeit. Danach sind die nächsten **45 Minuten** automatisch
+Pause statt Arbeit, die Zeit danach wieder Arbeit. Beispiel bei Beginn 08:00
+und Ende 16:30: 8,5 Stunden Anwesenheit, davon 45 Minuten Pause → 7 Stunden
+45 Minuten Arbeitszeit.
 
-Für einen Tag ohne eingetragenes Ende berechnet das Programm die
-Feierabend-Zeit aus dem, was von Wochen- und Tagesmaximum noch übrig ist
-(je nachdem, was zuerst erreicht wird) — inklusive der Pause, die auf dem Weg
-dahin noch anfällt.
+**Feierabend-Vorschlag:** für einen Tag ohne eingetragenes Ende berechnet das
+Programm die Feierabend-Zeit aus dem, was von Wochen- und Tagesmaximum noch
+übrig ist (je nachdem, was zuerst erreicht wird) — inklusive der Pause, die
+auf dem Weg dahin noch anfällt.
+
+**Urlaubsentgelt:** nach § 11 BUrlG richtet sich die Bezahlung eines
+Urlaubstags nach dem durchschnittlichen Verdienst der **letzten 13 Wochen**
+vor dem Urlaub, geteilt durch die Anzahl der in dieser Zeit tatsächlich
+gearbeiteten Tage. Das Programm bildet diesen Durchschnitt automatisch aus
+allen erfassten Wochen vor der aktuell betrachteten Woche und multipliziert
+ihn mit den Urlaubstagen dieser Woche. Vereinfachung: es gibt nur einen
+einzigen, flachen Stundenlohn — Sonderfälle des Gesetzes wie
+Überstundenzuschläge oder Kurzarbeit werden nicht separat behandelt. Ein
+zusätzliches, tarifliches **Urlaubsgeld** (ein Bonus über diese gesetzliche
+Fortzahlung hinaus) gibt es nur, wenn Arbeits- oder Tarifvertrag das
+vorsehen — das rechnet dieses Programm nicht automatisch mit, weil es dafür
+keine einheitliche Regel gibt.
 
 ## Bedienung
 
 1. Einstellungen einmalig ausfüllen: Stundenlohn, Wochen- und
    Tagesmaximum, Pausenregel. Werden lokal gespeichert.
-2. Für jeden Tag Beginn und Ende eintragen (Format `HH:MM`).
-3. **Berechnen** klicken (oder das Fenster einfach schließen — es wird
+2. Mit **‹ ›** zwischen Kalenderwochen wechseln, **Heute** springt zur
+   aktuellen Woche zurück. Jede Woche — auch vergangene — lässt sich jederzeit
+   bearbeiten.
+3. Für jeden Tag Beginn und Ende eintragen (Format `HH:MM`), oder den Tag
+   per Häkchen als **Urlaub** markieren (Zeitfelder werden dann gesperrt).
+4. **Berechnen** klicken (oder das Fenster einfach schließen — es wird
    beim Schließen automatisch gespeichert).
-4. Häufigster Ablauf: Montag bis Donnerstag komplett eintragen, am Freitag
+5. Häufigster Ablauf: Montag bis Donnerstag komplett eintragen, am Freitag
    nur den Beginn — die App schlägt die Feierabend-Zeit vor.
-5. Am Ende der Woche **„Woche abschließen & neu beginnen"**: die Woche
-   wandert mit Gesamtstunden und Verdienst in den Verlauf, die Felder werden
-   für die neue Woche geleert.
+6. Die **Übersicht** unten listet alle erfassten Wochen mit Gesamtstunden
+   und Verdienst; „Bearbeiten" springt direkt zu einer Woche, „Leeren" setzt
+   ihre Tage zurück.
 
 ## Lokal starten (ohne EXE)
 

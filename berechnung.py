@@ -7,9 +7,29 @@ Arbeit, die Zeit danach wieder Arbeit.
 """
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Optional
 
 WEEKDAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+REFERENZ_WOCHEN = 13  # § 11 BUrlG: Bezugszeitraum fuer das Urlaubsentgelt
+
+
+def week_key(d: date) -> str:
+    year, week, _ = d.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def week_key_shift(key: str, delta_weeks: int) -> str:
+    """Kalenderwochen-Schluessel um ``delta_weeks`` verschieben (jahresuebergreifend)."""
+    year_text, week_text = key.split("-W")
+    monday = date.fromisocalendar(int(year_text), int(week_text), 1)
+    return week_key(monday + timedelta(weeks=delta_weeks))
+
+
+def week_label(key: str) -> str:
+    year_text, week_text = key.split("-W")
+    return f"KW {int(week_text)} · {year_text}"
 
 
 def parse_time(text):
@@ -70,6 +90,7 @@ class DayResult:
     name: str
     begin_text: str = ""
     end_text: str = ""
+    is_urlaub: bool = False
     error: Optional[str] = None
     complete: bool = False
     work_minutes: int = 0
@@ -84,8 +105,18 @@ class WeekResult:
     remaining_week_minutes: int = 0
     earned_so_far: float = 0.0
     earned_projected: Optional[float] = None
+    urlaub_days: int = 0
     errors: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
+
+
+@dataclass
+class UrlaubsentgeltResult:
+    tagessatz: Optional[float] = None   # durchschnittl. Tagesverdienst der Referenzwochen
+    basis_tage: int = 0                 # Anzahl Arbeitstage, auf die sich der Satz stuetzt
+    basis_wochen: int = 0               # Anzahl Wochen mit Daten im Referenzzeitraum
+    urlaubstage: int = 0                # Urlaubstage in der betrachteten Woche
+    betrag: float = 0.0                 # tagessatz * urlaubstage
 
 
 def compute_week(day_inputs, settings):
@@ -103,11 +134,18 @@ def compute_week(day_inputs, settings):
     warnings = []
     total_work = 0
 
+    urlaub_days = 0
     for name in WEEKDAYS:
         raw = day_inputs.get(name, {})
-        begin_text = (raw.get("begin") or "").strip()
-        end_text = (raw.get("end") or "").strip()
-        day = DayResult(name=name, begin_text=begin_text, end_text=end_text)
+        is_urlaub = bool(raw.get("urlaub"))
+        begin_text = "" if is_urlaub else (raw.get("begin") or "").strip()
+        end_text = "" if is_urlaub else (raw.get("end") or "").strip()
+        day = DayResult(name=name, begin_text=begin_text, end_text=end_text, is_urlaub=is_urlaub)
+
+        if is_urlaub:
+            urlaub_days += 1
+            days.append(day)
+            continue
 
         if not begin_text and not end_text:
             days.append(day)
@@ -171,6 +209,64 @@ def compute_week(day_inputs, settings):
         remaining_week_minutes=remaining_week,
         earned_so_far=earned_so_far,
         earned_projected=earned_projected,
+        urlaub_days=urlaub_days,
         errors=errors,
         warnings=warnings,
+    )
+
+
+def compute_urlaubsentgelt(weeks_data, target_week_key, settings):
+    """Urlaubsentgelt nach § 11 BUrlG: durchschnittlicher Tagesverdienst der
+    letzten 13 Wochen vor der betrachteten Woche (nur tatsaechlich
+    gearbeitete Tage, unbezahlte/Urlaubstage zaehlen nicht in die Basis),
+    multipliziert mit den Urlaubstagen der betrachteten Woche.
+
+    Vereinfachung gegenueber dem Gesetzestext: keine Sonderbehandlung von
+    Ueberstundenzuschlaegen oder Kurzarbeit, da dieser Rechner nur einen
+    einzigen, flachen Stundenlohn kennt.
+    """
+    pause_after = round(settings["pauseAbStunden"] * 60)
+    pause_minutes = round(settings["pauseDauerMinuten"])
+    wage = settings["stundenlohn"]
+
+    total_earned = 0.0
+    total_days = 0
+    weeks_used = 0
+
+    for offset in range(1, REFERENZ_WOCHEN + 1):
+        key = week_key_shift(target_week_key, -offset)
+        week = weeks_data.get(key)
+        if not week:
+            continue
+        found_in_week = False
+        for name in WEEKDAYS:
+            day = week.get("days", {}).get(name, {})
+            if day.get("urlaub"):
+                continue
+            begin_minutes = parse_time(day.get("begin", ""))
+            end_minutes = parse_time(day.get("end", ""))
+            if begin_minutes is None or end_minutes is None or end_minutes <= begin_minutes:
+                continue
+            work, _ = split_work_and_break(end_minutes - begin_minutes, pause_after, pause_minutes)
+            total_earned += (work / 60) * wage
+            total_days += 1
+            found_in_week = True
+        if found_in_week:
+            weeks_used += 1
+
+    target_week = weeks_data.get(target_week_key, {})
+    urlaubstage = sum(
+        1 for name in WEEKDAYS
+        if target_week.get("days", {}).get(name, {}).get("urlaub")
+    )
+
+    tagessatz = (total_earned / total_days) if total_days else None
+    betrag = (tagessatz * urlaubstage) if tagessatz is not None else 0.0
+
+    return UrlaubsentgeltResult(
+        tagessatz=tagessatz,
+        basis_tage=total_days,
+        basis_wochen=weeks_used,
+        urlaubstage=urlaubstage,
+        betrag=betrag,
     )

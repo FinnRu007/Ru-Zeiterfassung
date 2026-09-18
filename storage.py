@@ -12,16 +12,22 @@ DEFAULT_SETTINGS = {
     "pauseDauerMinuten": 45,
 }
 
-MAX_HISTORY = 12
+MAX_OVERVIEW_WEEKS = 20
+
+
+def _empty_day():
+    return {"begin": "", "end": "", "urlaub": False}
 
 
 def _empty_week():
-    return {name: {"begin": "", "end": ""} for name in WEEKDAYS}
+    return {"days": {name: _empty_day() for name in WEEKDAYS}}
 
 
 class Store:
-    """Haelt Einstellungen, aktuelle Woche und Verlauf im Speicher und
-    schreibt sie nach jeder Aenderung als JSON-Datei neben die exe."""
+    """Haelt Einstellungen und alle Kalenderwochen im Speicher und schreibt
+    sie nach jeder Aenderung als JSON-Datei neben die exe. Jede Woche bleibt
+    dauerhaft editierbar (kein Archivieren/Loeschen von Wochen selbst, nur
+    ihre Tage lassen sich leeren)."""
 
     def __init__(self):
         self.data = self._load()
@@ -36,14 +42,14 @@ class Store:
                 loaded = {}
 
         settings = {**DEFAULT_SETTINGS, **loaded.get("settings", {})}
-        week = _empty_week()
-        for name in WEEKDAYS:
-            week[name].update(loaded.get("week", {}).get(name, {}))
-        history = loaded.get("history", [])
-        if not isinstance(history, list):
-            history = []
+        weeks = {}
+        for key, week in loaded.get("weeks", {}).items():
+            days = {name: _empty_day() for name in WEEKDAYS}
+            for name in WEEKDAYS:
+                days[name].update(week.get("days", {}).get(name, {}))
+            weeks[key] = {"days": days}
 
-        return {"settings": settings, "week": week, "history": history}
+        return {"settings": settings, "weeks": weeks}
 
     def save(self):
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -57,32 +63,36 @@ class Store:
         return self.data["settings"]
 
     @property
-    def week(self):
-        return self.data["week"]
-
-    @property
-    def history(self):
-        return self.data["history"]
+    def weeks(self):
+        return self.data["weeks"]
 
     def update_settings(self, **values):
         self.data["settings"].update(values)
         self.save()
 
-    def update_day(self, name, begin, end):
-        self.data["week"][name] = {"begin": begin, "end": end}
+    def get_week_days(self, key):
+        """Tage einer Woche zum Anzeigen (ohne die Woche anzulegen)."""
+        week = self.data["weeks"].get(key)
+        return week["days"] if week else {name: _empty_day() for name in WEEKDAYS}
+
+    def update_day(self, key, name, begin, end, urlaub):
+        week = self.data["weeks"].setdefault(key, _empty_week())
+        week["days"][name] = {"begin": begin, "end": end, "urlaub": urlaub}
         self.save()
 
-    def finish_week(self, label, work_minutes, earned):
-        self.data["history"].insert(0, {
-            "label": label,
-            "workMinutes": work_minutes,
-            "earned": earned,
-        })
-        self.data["history"] = self.data["history"][:MAX_HISTORY]
-        self.data["week"] = _empty_week()
-        self.save()
-
-    def remove_history_entry(self, index):
-        if 0 <= index < len(self.data["history"]):
-            self.data["history"].pop(index)
+    def clear_week(self, key):
+        if key in self.data["weeks"]:
+            self.data["weeks"][key] = _empty_week()
             self.save()
+
+    def overview(self):
+        """Wochen-Schluessel mit irgendwelchen Daten, neueste zuerst,
+        auf MAX_OVERVIEW_WEEKS begrenzt (die Rohdaten bleiben unbegrenzt)."""
+        keys_with_data = [
+            key for key, week in self.data["weeks"].items()
+            if any(
+                day.get("begin") or day.get("end") or day.get("urlaub")
+                for day in week["days"].values()
+            )
+        ]
+        return sorted(keys_with_data, reverse=True)[:MAX_OVERVIEW_WEEKS]
