@@ -1,0 +1,4 @@
+customtkinter>=5.2
+pyinstaller>=6.0
+# Nur für make_icon.py (Logo neu erzeugen), nicht zur Laufzeit nötig:
+pillow>=10.0
