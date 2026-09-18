@@ -69,6 +69,7 @@ class App(ctk.CTk):
         self.current_week_key = calc.week_key(date.today())
 
         self.settings_expanded = False
+        self._autosave_job = None
 
         self.title("Zeiten Berechnen")
         self._place_window()
@@ -243,8 +244,13 @@ class App(ctk.CTk):
 
             begin = w.entry(grid, "08:00")
             begin.grid(row=2, column=col, sticky="ew", padx=4, pady=(0, 4))
+            begin.bind("<KeyRelease>", self._schedule_autosave)
+            begin.bind("<FocusOut>", lambda e: self._save_current_week())
+
             end = w.entry(grid, "16:30")
             end.grid(row=3, column=col, sticky="ew", padx=4, pady=(0, 6))
+            end.bind("<KeyRelease>", self._schedule_autosave)
+            end.bind("<FocusOut>", lambda e: self._save_current_week())
 
             result = ctk.CTkLabel(
                 grid, text="—", anchor="center", text_color=t.INK_FAINT, justify="center",
@@ -265,6 +271,16 @@ class App(ctk.CTk):
             widgets["result"].configure(text="Urlaub", text_color=t.INK_SOFT)
         else:
             widgets["result"].configure(text="—", text_color=t.INK_FAINT)
+        self._save_current_week()
+
+    def _schedule_autosave(self, _event=None):
+        if self._autosave_job is not None:
+            self.after_cancel(self._autosave_job)
+        self._autosave_job = self.after(400, self._autosave_now)
+
+    def _autosave_now(self):
+        self._autosave_job = None
+        self._save_current_week()
 
     def _build_summary_panel(self, parent):
         panel = w.soft_panel(parent)
@@ -373,12 +389,15 @@ class App(ctk.CTk):
 
     # ----------------------------------------------------------- Speichern
     def _save_current_week(self):
-        for name, widgets in self.day_rows.items():
-            self.store.update_day(
-                self.current_week_key, name,
-                widgets["begin"].get(), widgets["end"].get(),
-                bool(widgets["urlaub_var"].get()),
-            )
+        days = {
+            name: {
+                "begin": widgets["begin"].get(),
+                "end": widgets["end"].get(),
+                "urlaub": bool(widgets["urlaub_var"].get()),
+            }
+            for name, widgets in self.day_rows.items()
+        }
+        self.store.update_week_days(self.current_week_key, days)
 
     # ---------------------------------------------------------- Berechnen
     def _read_settings(self):
@@ -416,9 +435,7 @@ class App(ctk.CTk):
 
         self.store.update_settings(**settings)
         self._render_settings_collapse_state()
-        for name, values in day_inputs.items():
-            self.store.update_day(
-                self.current_week_key, name, values["begin"], values["end"], values["urlaub"])
+        self.store.update_week_days(self.current_week_key, day_inputs)
 
         result = calc.compute_week(day_inputs, settings)
         urlaub_result = calc.compute_urlaubsentgelt(self.store.weeks, self.current_week_key, settings)
@@ -545,6 +562,9 @@ class App(ctk.CTk):
 
     # -------------------------------------------------------------- Ende
     def _on_close(self):
+        if self._autosave_job is not None:
+            self.after_cancel(self._autosave_job)
+            self._autosave_job = None
         self._save_current_week()
         self._calculate()
         self.destroy()

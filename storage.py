@@ -75,9 +75,16 @@ class Store:
         week = self.data["weeks"].get(key)
         return week["days"] if week else {name: _empty_day() for name in WEEKDAYS}
 
-    def update_day(self, key, name, begin, end, urlaub):
+    def update_week_days(self, key, days):
+        """Alle Tage einer Woche in einem Schreibvorgang speichern.
+        ``days``: {Wochentag: {"begin":.., "end":.., "urlaub":..}}."""
         week = self.data["weeks"].setdefault(key, _empty_week())
-        week["days"][name] = {"begin": begin, "end": end, "urlaub": urlaub}
+        for name, values in days.items():
+            week["days"][name] = {
+                "begin": values.get("begin", ""),
+                "end": values.get("end", ""),
+                "urlaub": bool(values.get("urlaub")),
+            }
         self.save()
 
     def clear_week(self, key):
