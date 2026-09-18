@@ -1,11 +1,13 @@
 # Ru-Zeiterfassung — Zeiten Berechnen
 
 Windows-Programm für die eigene Arbeitszeit: Stundenlohn, Wochen- und
-Tagesmaximum sowie eine automatische Pausenregel eintragen, dann für jeden
-Wochentag Beginn und Ende erfassen — oder den Tag als Urlaub markieren.
+Tagesmaximum sowie eine automatische Pausenregel eintragen, dann für Montag
+bis Freitag Beginn und Ende erfassen — oder den Tag als Urlaub markieren.
 Fehlt an einem Tag das Ende, schlägt das Programm die Feierabend-Zeit vor.
 Jede Kalenderwoche bleibt dauerhaft editierbar (auch rückwirkend), und das
-Programm rechnet Wochenverdienst und Urlaubsentgelt aus.
+Programm rechnet Wochenverdienst und Urlaubsentgelt aus. Die Wochentage
+stehen nebeneinander mit den Zeiten darunter, und die Einstellungen lassen
+sich einklappen — damit passt alles auf einen Blick.
 
 ![Logo](icon.png)
 
@@ -37,13 +39,15 @@ keine einheitliche Regel gibt.
 
 ## Bedienung
 
-1. Einstellungen einmalig ausfüllen: Stundenlohn, Wochen- und
-   Tagesmaximum, Pausenregel. Werden lokal gespeichert.
+1. Einstellungen einmalig unter „▸ Bearbeiten" ausfüllen: Stundenlohn,
+   Wochen- und Tagesmaximum, Pausenregel. Werden lokal gespeichert; die
+   Karte bleibt danach eingeklappt und zeigt nur eine Kurzzusammenfassung.
 2. Mit **‹ ›** zwischen Kalenderwochen wechseln, **Heute** springt zur
    aktuellen Woche zurück. Jede Woche — auch vergangene — lässt sich jederzeit
    bearbeiten.
-3. Für jeden Tag Beginn und Ende eintragen (Format `HH:MM`), oder den Tag
-   per Häkchen als **Urlaub** markieren (Zeitfelder werden dann gesperrt).
+3. Für jeden Tag (Montag bis Freitag, nebeneinander) Beginn und Ende
+   eintragen (Format `HH:MM`), oder per Häkchen als **Urlaub** markieren
+   (Zeitfelder werden dann gesperrt).
 4. **Berechnen** klicken (oder das Fenster einfach schließen — es wird
    beim Schließen automatisch gespeichert).
 5. Häufigster Ablauf: Montag bis Donnerstag komplett eintragen, am Freitag

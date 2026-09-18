@@ -68,9 +68,11 @@ class App(ctk.CTk):
         self.last_result = None
         self.current_week_key = calc.week_key(date.today())
 
+        self.settings_expanded = False
+
         self.title("Zeiten Berechnen")
         self._place_window()
-        self.minsize(820, 640)
+        self.minsize(720, 480)
         self.configure(fg_color=t.BG)
         try:
             self.iconbitmap(resource_path("icon.ico"))
@@ -88,8 +90,8 @@ class App(ctk.CTk):
         self.update_idletasks()
         screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
-        width = min(1040, screen_w - 80)
-        height = min(860, screen_h - 80)
+        width = min(880, screen_w - 80)
+        height = min(640, screen_h - 80)
         x = max(0, (screen_w - width) // 2)
         y = max(0, (screen_h - height) // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
@@ -129,14 +131,24 @@ class App(ctk.CTk):
 
     def _build_settings_card(self, parent):
         card = w.card(parent)
-        card.pack(fill="x", pady=(0, t.PAD_GROUP))
+        card.pack(fill="x", pady=(0, t.PAD_TIGHT))
         inner = ctk.CTkFrame(card, fg_color=t.BG)
-        inner.pack(fill="x", padx=22, pady=20)
+        inner.pack(fill="x", padx=18, pady=12)
 
-        w.caption(inner, "Einstellungen").pack(fill="x", pady=(0, 4))
-        w.heading(inner, "Deine Rahmenbedingungen", level=3).pack(fill="x", pady=(0, t.PAD_TIGHT))
+        header = ctk.CTkFrame(inner, fg_color=t.BG)
+        header.pack(fill="x")
+        left = ctk.CTkFrame(header, fg_color=t.BG)
+        left.pack(side="left", fill="x", expand=True)
+        w.caption(left, "Einstellungen").pack(anchor="w")
+        self.settings_summary = w.label(left, "")
+        self.settings_summary.pack(anchor="w", pady=(2, 0))
+        self.settings_toggle_btn = w.ghost_button(
+            header, "", command=self._toggle_settings)
+        self.settings_toggle_btn.pack(side="right")
 
-        grid = ctk.CTkFrame(inner, fg_color=t.BG)
+        self.settings_body = ctk.CTkFrame(inner, fg_color=t.BG)
+
+        grid = ctk.CTkFrame(self.settings_body, fg_color=t.BG)
         grid.pack(fill="x", pady=(t.PAD_TIGHT, 0))
         grid.columnconfigure(0, weight=1)
         grid.columnconfigure(1, weight=1)
@@ -151,11 +163,40 @@ class App(ctk.CTk):
             entry.pack(fill="x")
             self.setting_entries[key] = entry
 
+        self._render_settings_collapse_state()
+
+    def _toggle_settings(self):
+        self.settings_expanded = not self.settings_expanded
+        self._render_settings_collapse_state()
+
+    def _settings_summary_text(self):
+        settings, errors = self._read_settings()
+        if errors:
+            return "Ungültige Werte – zum Prüfen aufklappen."
+        return (
+            f"{format_number(settings['stundenlohn'])} €/h · "
+            f"Woche max. {format_number(settings['wochenMaxStunden'])}h · "
+            f"Tag max. {format_number(settings['tagesMaxStunden'])}h · "
+            f"Pause ab {format_number(settings['pauseAbStunden'])}h "
+            f"für {format_number(settings['pauseDauerMinuten'])}min"
+        )
+
+    def _render_settings_collapse_state(self):
+        if self.settings_expanded:
+            self.settings_body.pack(fill="x")
+            self.settings_toggle_btn.configure(text="▾ Einklappen")
+            self.settings_summary.pack_forget()
+        else:
+            self.settings_body.pack_forget()
+            self.settings_toggle_btn.configure(text="▸ Bearbeiten")
+            self.settings_summary.configure(text=self._settings_summary_text())
+            self.settings_summary.pack(anchor="w", pady=(2, 0))
+
     def _build_week_nav(self, parent):
         panel = w.soft_panel(parent)
-        panel.pack(fill="x", pady=(0, t.PAD_GROUP))
+        panel.pack(fill="x", pady=(0, t.PAD_TIGHT))
         row = ctk.CTkFrame(panel, fg_color=t.BG_SOFT)
-        row.pack(fill="x", padx=20, pady=14)
+        row.pack(fill="x", padx=14, pady=8)
 
         w.secondary_button(row, "‹", compact=True, width=40,
                             command=self._go_prev_week).pack(side="left")
@@ -170,48 +211,46 @@ class App(ctk.CTk):
 
     def _build_days_card(self, parent):
         card = w.card(parent)
-        card.pack(fill="x", pady=(0, t.PAD_GROUP))
+        card.pack(fill="x", pady=(0, t.PAD_TIGHT))
         inner = ctk.CTkFrame(card, fg_color=t.BG)
-        inner.pack(fill="x", padx=22, pady=20)
+        inner.pack(fill="x", padx=18, pady=14)
 
-        w.caption(inner, "Woche").pack(fill="x", pady=(0, 4))
-        w.heading(inner, "Deine Zeiten", level=3).pack(fill="x", pady=(0, t.PAD_TIGHT))
+        w.caption(inner, "Woche").pack(fill="x", pady=(0, 2))
         w.label(
             inner,
-            "Beginn und Ende im Format HH:MM eintragen, oder den Tag als Urlaub "
-            "markieren. Fehlt das Ende, schlage ich die Feierabend-Zeit vor.",
-        ).pack(fill="x", pady=(0, t.PAD_GROUP))
+            "HH:MM eintragen oder als Urlaub markieren. Ende leer → Feierabend-Vorschlag.",
+        ).pack(fill="x", pady=(0, t.PAD_TIGHT))
 
         grid = ctk.CTkFrame(inner, fg_color=t.BG)
         grid.pack(fill="x")
-        grid.columnconfigure(5, weight=1)
+        for col in range(len(WEEKDAYS)):
+            grid.columnconfigure(col, weight=1)
 
-        for i, name in enumerate(WEEKDAYS):
+        for col, name in enumerate(WEEKDAYS):
             w.label(grid, name, soft=False).grid(
-                row=i, column=0, sticky="w", padx=(0, 10), pady=6)
+                row=0, column=col, sticky="ew", padx=4, pady=(0, 4))
 
             urlaub_var = ctk.BooleanVar(value=False)
             checkbox = ctk.CTkCheckBox(
                 grid, text="Urlaub", variable=urlaub_var,
-                checkbox_width=18, checkbox_height=18, width=20,
+                checkbox_width=16, checkbox_height=16,
                 fg_color=t.PRIMARY, hover_color=t.PRIMARY_DARK,
                 border_color=t.LINE, checkmark_color=t.WHITE,
                 text_color=t.INK_SOFT, font=t.font(ctk, t.SIZE_LABEL),
                 command=lambda n=name: self._on_urlaub_toggle(n),
             )
-            checkbox.grid(row=i, column=1, sticky="w", padx=(0, 12), pady=6)
+            checkbox.grid(row=1, column=col, sticky="w", padx=4, pady=(0, 6))
 
-            begin = w.entry(grid, "08:00", width=85)
-            begin.grid(row=i, column=2, padx=(0, 6), pady=6)
-            ctk.CTkLabel(grid, text="–", text_color=t.INK_FAINT, width=14).grid(
-                row=i, column=3)
-            end = w.entry(grid, "16:30", width=85)
-            end.grid(row=i, column=4, padx=(6, 16), pady=6)
+            begin = w.entry(grid, "08:00")
+            begin.grid(row=2, column=col, sticky="ew", padx=4, pady=(0, 4))
+            end = w.entry(grid, "16:30")
+            end.grid(row=3, column=col, sticky="ew", padx=4, pady=(0, 6))
+
             result = ctk.CTkLabel(
-                grid, text="—", anchor="w", text_color=t.INK_SOFT, justify="left",
-                font=t.font(ctk, t.SIZE_BODY),
+                grid, text="—", anchor="center", text_color=t.INK_FAINT, justify="center",
+                font=t.font(ctk, t.SIZE_LABEL), wraplength=130,
             )
-            result.grid(row=i, column=5, sticky="ew", pady=6)
+            result.grid(row=4, column=col, sticky="ew", padx=4, pady=(0, 2))
             self.day_rows[name] = {
                 "begin": begin, "end": end, "urlaub_var": urlaub_var, "result": result,
             }
@@ -229,24 +268,23 @@ class App(ctk.CTk):
 
     def _build_summary_panel(self, parent):
         panel = w.soft_panel(parent)
-        panel.pack(fill="x", pady=(0, t.PAD_GROUP))
+        panel.pack(fill="x", pady=(0, t.PAD_TIGHT))
         inner = ctk.CTkFrame(panel, fg_color=t.BG_SOFT)
-        inner.pack(fill="x", padx=24, pady=20)
+        inner.pack(fill="x", padx=18, pady=14)
 
-        w.label(inner, "Zusammenfassung", soft=False).pack(anchor="w", pady=(0, 10))
+        w.label(inner, "Zusammenfassung", soft=False).pack(anchor="w", pady=(0, 8))
 
         grid = ctk.CTkFrame(inner, fg_color=t.BG_SOFT)
         grid.pack(fill="x")
-        grid.columnconfigure(0, weight=1)
-        grid.columnconfigure(1, weight=1)
+        for col in range(3):
+            grid.columnconfigure(col, weight=1)
 
-        self.stat_worked = self._make_stat_tile(grid, 0, 0, "Gearbeitet diese Woche")
-        self.stat_remaining = self._make_stat_tile(grid, 0, 1, "Frei bis Wochenmaximum")
-        self.stat_earned = self._make_stat_tile(grid, 1, 0, "Verdienst bisher")
-        self.stat_projected = self._make_stat_tile(grid, 1, 1, "Prognose mit Feierabend")
-        self.stat_urlaubstage = self._make_stat_tile(grid, 2, 0, "Urlaubstage diese Woche")
-        self.stat_urlaubsentgelt = self._make_stat_tile(
-            grid, 2, 1, "Urlaubsentgelt (Ø letzte 13 Wochen)")
+        self.stat_worked = self._make_stat_tile(grid, 0, 0, "Gearbeitet")
+        self.stat_remaining = self._make_stat_tile(grid, 0, 1, "Frei bis Wochenmax.")
+        self.stat_earned = self._make_stat_tile(grid, 0, 2, "Verdienst bisher")
+        self.stat_projected = self._make_stat_tile(grid, 1, 0, "Prognose Feierabend")
+        self.stat_urlaubstage = self._make_stat_tile(grid, 1, 1, "Urlaubstage")
+        self.stat_urlaubsentgelt = self._make_stat_tile(grid, 1, 2, "Urlaubsentgelt")
 
         self.warning_frame = ctk.CTkFrame(inner, fg_color=t.BG_SOFT)
         # wird bei Bedarf in _render_warnings gepackt/entpackt
@@ -257,31 +295,30 @@ class App(ctk.CTk):
             border_width=1, border_color=t.LINE,
         )
         box.grid(row=row, column=col, sticky="nsew",
-                  padx=(0, 8) if col == 0 else (8, 0),
-                  pady=(0, 8))
+                  padx=(0 if col == 0 else 4, 0 if col == 2 else 4),
+                  pady=(0, 6) if row == 0 else (0, 0))
         inner = ctk.CTkFrame(box, fg_color=t.BG)
-        inner.pack(padx=16, pady=14, fill="both")
+        inner.pack(padx=10, pady=8, fill="both")
         w.label(inner, title).pack(anchor="w")
         value = ctk.CTkLabel(
             inner, text="—", text_color=t.INK, anchor="w",
             font=t.font(ctk, t.SIZE_H3, "bold", display=True),
         )
-        value.pack(anchor="w", pady=(4, 0))
+        value.pack(anchor="w", pady=(2, 0))
         return value
 
     def _build_overview_card(self, parent):
         card = w.card(parent)
         card.pack(fill="x", pady=(0, 0))
         inner = ctk.CTkFrame(card, fg_color=t.BG)
-        inner.pack(fill="x", padx=22, pady=20)
+        inner.pack(fill="x", padx=18, pady=14)
 
-        w.caption(inner, "Übersicht").pack(fill="x", pady=(0, 4))
-        w.heading(inner, "Alle Wochen", level=3).pack(fill="x", pady=(0, t.PAD_TIGHT))
-        w.label(inner, "Anklicken, um eine Woche zu bearbeiten.").pack(
+        w.caption(inner, "Übersicht").pack(fill="x", pady=(0, 2))
+        w.label(inner, "Alle Wochen — anklicken, um zu bearbeiten.").pack(
             fill="x", pady=(0, t.PAD_TIGHT))
 
         self.overview_list = ctk.CTkFrame(inner, fg_color=t.BG)
-        self.overview_list.pack(fill="x", pady=(t.PAD_TIGHT, 0))
+        self.overview_list.pack(fill="x")
 
     # ------------------------------------------------------- Wochen-Navigation
     def _go_prev_week(self):
@@ -315,6 +352,7 @@ class App(ctk.CTk):
             entry = self.setting_entries[key]
             entry.delete(0, "end")
             entry.insert(0, format_number(settings[key]))
+        self._render_settings_collapse_state()
 
     def _load_week_into_ui(self):
         self.week_heading.configure(text=calc.week_label(self.current_week_key))
@@ -377,6 +415,7 @@ class App(ctk.CTk):
             return
 
         self.store.update_settings(**settings)
+        self._render_settings_collapse_state()
         for name, values in day_inputs.items():
             self.store.update_day(
                 self.current_week_key, name, values["begin"], values["end"], values["urlaub"])
@@ -394,19 +433,19 @@ class App(ctk.CTk):
             if day.is_urlaub:
                 label.configure(text="Urlaub", text_color=t.INK_SOFT)
             elif day.error:
-                label.configure(text=day.error, text_color=t.DANGER)
+                label.configure(text="⚠ Fehler", text_color=t.DANGER)
             elif day.complete:
                 pause_text = (
                     f"Pause {calc.format_duration(day.break_minutes)}"
                     if day.break_minutes else "keine Pause"
                 )
                 label.configure(
-                    text=f"{calc.format_duration(day.work_minutes)} · {pause_text}",
+                    text=f"{calc.format_duration(day.work_minutes)}\n{pause_text}",
                     text_color=t.INK,
                 )
             elif day.suggested_end_minutes is not None:
                 label.configure(
-                    text=f"→ Feierabend ca. {calc.format_clock(day.suggested_end_minutes)}",
+                    text=f"Feierabend\n{calc.format_clock(day.suggested_end_minutes)}",
                     text_color=t.PRIMARY,
                 )
             else:
